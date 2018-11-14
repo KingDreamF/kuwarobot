@@ -58,7 +58,9 @@
 /* #define USE_FULL_ASSERT    1U */
 
 /* USER CODE BEGIN Private defines */
-
+#define SysPrintf(...) printf(__VA_ARGS__)
+#define SysLog(...) SysPrintf("%s[%d]:", __func__, __LINE__);SysPrintf(__VA_ARGS__);SysPrintf("\n");
+	
 #define BUFFER_SIZE	1024
 
 extern uint8_t aRxBuffer[BUFFER_SIZE];

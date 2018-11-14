@@ -62,11 +62,11 @@ DMA_HandleTypeDef hdma_usart1_rx;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
+void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
-static void MX_I2C1_Init(void);
-static void MX_USART1_UART_Init(void);
-static void MX_TIM3_Init(void);
+void MX_I2C1_Init(void);
+void MX_USART1_UART_Init(void);
+void MX_TIM3_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -122,8 +122,13 @@ int main(void)
   
   bsp_InitKey();//初始化按键
   
-  //HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, 2);
-//	HAL_UART_Receive_DMA(&huart1,aRxBuffer,BUFFER_SIZE);
+	if(__HAL_PWR_GET_FLAG(PWR_FLAG_SB) !=RESET)
+	{
+		SysLog("Standby reset system!\n");
+
+		__HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
+		HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN2);
+	}
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -142,15 +147,16 @@ int main(void)
 		{
 			case KEY_DOWN_K1:			  /* K1键按下 打印任务执行情况 */
 				
-				printf("k1 down!\n");
+				SysLog("k1 down!\n");
 				
 				break;
 			case KEY_UP_K1:
-				printf("k1 up!\n");
+				SysLog("k1 up!\n");
 				
 				break;
 			case KEY_LONG_K1:
-				printf("k1 long!\n");
+				SysLog("k1 long!\n");
+				lowPowerMode();
 				break;
 		}
 	}
@@ -164,9 +170,9 @@ int main(void)
         g_recv_end_flag = 0;//清除接收结束标志位
         memset(aRxBuffer,0,sizeof(aRxBuffer));
     }    
-//    APDS9930_readProximity(&proximity_data);
-//	printf("%d\n",proximity_data);
-//	HAL_Delay(10);
+    APDS9930_readProximity(&proximity_data);
+	printf("%d\n",proximity_data);
+	HAL_Delay(50);
   }
   /* USER CODE END 3 */
 
@@ -232,7 +238,7 @@ void SystemClock_Config(void)
 }
 
 /* I2C1 init function */
-static void MX_I2C1_Init(void)
+void MX_I2C1_Init(void)
 {
 
   hi2c1.Instance = I2C1;
@@ -266,7 +272,7 @@ static void MX_I2C1_Init(void)
 }
 
 /* TIM3 init function */
-static void MX_TIM3_Init(void)
+void MX_TIM3_Init(void)
 {
 
   TIM_ClockConfigTypeDef sClockSourceConfig;
@@ -299,7 +305,7 @@ static void MX_TIM3_Init(void)
 }
 
 /* USART1 init function */
-static void MX_USART1_UART_Init(void)
+void MX_USART1_UART_Init(void)
 {
 
   huart1.Instance = USART1;
@@ -344,7 +350,7 @@ static void MX_DMA_Init(void)
         * EVENT_OUT
         * EXTI
 */
-static void MX_GPIO_Init(void)
+void MX_GPIO_Init(void)
 {
 
   GPIO_InitTypeDef GPIO_InitStruct;
@@ -359,20 +365,20 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PC14 */
-  GPIO_InitStruct.Pin = GPIO_PIN_14;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+//  GPIO_InitStruct.Pin = GPIO_PIN_14;
+//  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+//  GPIO_InitStruct.Pull = GPIO_NOPULL;
+//  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+//  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 1, 3);
-  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
+  //HAL_NVIC_SetPriority(EXTI4_15_IRQn, 1, 3);
+  //HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
 
 }
 
