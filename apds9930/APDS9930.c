@@ -19,7 +19,10 @@
 
 #include "APDS9930.h"
 
-//extern I2C_HandleTypeDef hi2c1;
+static float max(float value1,float value2)
+{
+  return (value1>value2?value1:value2);
+}
 
 void Delay(uint32_t nCount)
 {

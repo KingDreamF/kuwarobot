@@ -44,7 +44,8 @@
 /* Includes ------------------------------------------------------------------*/
 
 /* USER CODE BEGIN Includes */
-
+#include "stm32f0xx_hal.h"
+#include "stdint.h"
 /* USER CODE END Includes */
 
 /* Private define ------------------------------------------------------------*/
@@ -58,6 +59,11 @@
 
 /* USER CODE BEGIN Private defines */
 
+#define BUFFER_SIZE	1024
+
+extern uint8_t aRxBuffer[BUFFER_SIZE];
+extern uint32_t g_rx_len ;
+extern uint8_t  g_recv_end_flag ;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

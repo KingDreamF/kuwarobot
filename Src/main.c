@@ -38,15 +38,19 @@
   */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32f0xx_hal.h"
+
 
 /* USER CODE BEGIN Includes */
 #include "APDS9930.h"
+#include "bsp_key.h"
+#include "button.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 DMA_HandleTypeDef hdma_i2c1_tx;
+
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
@@ -62,6 +66,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM3_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -70,6 +75,11 @@ static void MX_USART1_UART_Init(void);
 
 /* USER CODE BEGIN 0 */
 
+
+Button button;
+uint8_t aRxBuffer[BUFFER_SIZE] = {0};
+uint32_t g_rx_len =0;
+uint8_t  g_recv_end_flag =0;
 /* USER CODE END 0 */
 
 /**
@@ -104,23 +114,59 @@ int main(void)
   MX_DMA_Init();
   MX_I2C1_Init();
   MX_USART1_UART_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   APDS9930_init();
   APDS9930_setMode(WAIT, 1); // enable wait. // 50 ms per circle
   APDS9930_enableProximitySensor(false);
+  
+  bsp_InitKey();//初始化按键
+  
+  //HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, 2);
+//	HAL_UART_Receive_DMA(&huart1,aRxBuffer,BUFFER_SIZE);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  uint16_t proximity_data = 0;
   
+  HAL_TIM_Base_Start_IT(&htim3);
+  
+  uint16_t proximity_data = 0;
+  uint8_t ucKeyCode;
   while (1)
   {
-
+	ucKeyCode = bsp_GetKey();
+	if (ucKeyCode != KEY_NONE)
+	{
+		switch (ucKeyCode)
+		{
+			case KEY_DOWN_K1:			  /* K1键按下 打印任务执行情况 */
+				
+				printf("k1 down!\n");
+				
+				break;
+			case KEY_UP_K1:
+				printf("k1 up!\n");
+				
+				break;
+			case KEY_LONG_K1:
+				printf("k1 long!\n");
+				break;
+		}
+	}
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
+	if(g_recv_end_flag == 1)   //接收完成标志
+    {
+        HAL_UART_Transmit(&huart1,aRxBuffer, g_rx_len,0xff);
+        g_rx_len = 0;//清除计数
+        g_recv_end_flag = 0;//清除接收结束标志位
+        memset(aRxBuffer,0,sizeof(aRxBuffer));
+    }    
+//    APDS9930_readProximity(&proximity_data);
+//	printf("%d\n",proximity_data);
+//	HAL_Delay(10);
   }
   /* USER CODE END 3 */
 
@@ -219,6 +265,39 @@ static void MX_I2C1_Init(void)
 
 }
 
+/* TIM3 init function */
+static void MX_TIM3_Init(void)
+{
+
+  TIM_ClockConfigTypeDef sClockSourceConfig;
+  TIM_MasterConfigTypeDef sMasterConfig;
+
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 48000-1;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 10-1;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 /* USART1 init function */
 static void MX_USART1_UART_Init(void)
 {
@@ -237,6 +316,9 @@ static void MX_USART1_UART_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
+  //添加使能idle中断和打开串口DMA接收语句
+  __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);//使能idle中断
+  HAL_UART_Receive_DMA(&huart1,aRxBuffer,BUFFER_SIZE);
 
 }
 
@@ -277,8 +359,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PC14 */
@@ -289,7 +371,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 1, 3);
   HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
 
 }
