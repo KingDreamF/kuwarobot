@@ -41,7 +41,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern DMA_HandleTypeDef hdma_i2c1_tx;
+extern DMA_HandleTypeDef hdma_usart1_tx;
 extern TIM_HandleTypeDef htim3;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern UART_HandleTypeDef huart1;
@@ -152,7 +152,7 @@ void DMA1_Channel2_3_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 0 */
 	
   /* USER CODE END DMA1_Channel2_3_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_i2c1_tx);
+  HAL_DMA_IRQHandler(&hdma_usart1_tx);
   HAL_DMA_IRQHandler(&hdma_usart1_rx);
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 1 */
 
@@ -199,6 +199,8 @@ void USART1_IRQHandler(void)
         temp  = __HAL_DMA_GET_COUNTER(&hdma_usart1_rx);//hdma_usart1_rx.Instance->NDTR;// 获取DMA中未传输的数据个数，NDTR寄存器分析见下面
         g_rx_len =  BUFFER_SIZE - temp; //总计数减去未传输的数据个数，得到已经接收的数据个数
         g_recv_end_flag = 1;  // 接受完成标志位置1    
+		
+		//HAL_UART_Transmit_DMA(&huart1,aRxBuffer, g_rx_len);
 		HAL_UART_Receive_DMA(&huart1,aRxBuffer,BUFFER_SIZE);//重新打开DMA接收
      }
 

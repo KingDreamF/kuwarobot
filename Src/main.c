@@ -72,6 +72,7 @@ DMA_HandleTypeDef hdma_usart1_rx;
 
 
 uint8_t aRxBuffer[BUFFER_SIZE] = {0};
+uint8_t aTxBuffer[BUFFER_SIZE] = {"123456789abcdefghijklmn\n"};
 uint32_t g_rx_len =0;
 uint8_t  g_recv_end_flag =0;
 /* USER CODE END PV */
@@ -226,19 +227,24 @@ int main(void)
 	}
   /* USER CODE END WHILE */
 
+	
   /* USER CODE BEGIN 3 */
 	if(g_recv_end_flag == 1)   //接收完成标志
     {
-        HAL_UART_Transmit(&huart1,aRxBuffer, g_rx_len,0xff);
-		//HAL_UART_Transmit_DMA(&huart1,aRxBuffer, g_rx_len);
+        //HAL_UART_Transmit(&huart1,aRxBuffer, g_rx_len,0xff);
+	  	memset(aTxBuffer,0,sizeof(aTxBuffer));
+	 	memcpy(aTxBuffer,aRxBuffer,g_rx_len);
+		HAL_UART_Transmit_DMA(&huart1,aTxBuffer, g_rx_len);
+
         g_rx_len = 0;//清除计数
         g_recv_end_flag = 0;//清除接收结束标志位
         memset(aRxBuffer,0,sizeof(aRxBuffer));
+		
     }    
     APDS9930_readProximity(&proximity_data);
 
 	//printf("%d\n",proximity_data);
-	//HAL_Delay(10);
+	//HAL_Delay(200);
   }
   /* USER CODE END 3 */
 
