@@ -181,6 +181,14 @@ void USART1_IRQHandler(void)
   /* USER CODE BEGIN USART1_IRQn 0 */
  	uint32_t tmp_flag = 0;
     uint32_t temp;
+	
+	
+	tmp_flag =__HAL_UART_GET_FLAG(&huart1,UART_FLAG_ORE); //获取ORE标志位
+	if((tmp_flag != RESET))
+	{
+	  	__HAL_UART_CLEAR_OREFLAG(&huart1);
+	  	SysLog("usart overrun!");
+	}
     tmp_flag =__HAL_UART_GET_FLAG(&huart1,UART_FLAG_IDLE); //获取IDLE标志位
     if((tmp_flag != RESET))//idle标志被置位
     { 
@@ -218,8 +226,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	the HAL_UART_RxCpltCallback can be implemented in the user file
 	*/
 	
-//    HAL_UART_Transmit(&huart1, (uint8_t *)aRxBuffer, 2,0xFFFF);
-//	HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, 2);
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -229,5 +235,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		bsp_KeyScan();
 	}
 }
+void HAL_WWDG_EarlyWakeupCallback(WWDG_HandleTypeDef* hwwdg)
+{
+	SysLog("HAL_WWDG_EarlyWakeupCallback");
+	//HAL_WWDG_Refresh(hwwdg);
+}
+
 /* USER CODE END 1 */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

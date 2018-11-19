@@ -5,6 +5,7 @@ static void enterStandbyMode();
 
 void lowPowerMode()
 {
+	//IWDG_WINDOW_DISABLE;
 #if 0
   enterStopMode();
 #else

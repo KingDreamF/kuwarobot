@@ -276,3 +276,57 @@ uint8_t TWI_ReceiveByte(void)
 	//////DebugPrint("TWI_Dat:%x\n",Dat);  
 	return Dat;
 }
+
+uint8_t I2CCheck()
+{
+	GPIO_InitTypeDef GPIO_InitStruct;
+
+  /* GPIO Ports Clock Enable */
+
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	  /*Configure GPIO 为输入模式 */
+	GPIO_InitStruct.Pin = PIN_SDA;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(PORT_I2C, &GPIO_InitStruct);
+
+	if(TWI_SDA_STATE())
+	{
+		
+	}else
+	{
+	  	SysLog("SDA is height!");
+		GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+		GPIO_InitStruct.Pin = PIN_SCL;
+		HAL_GPIO_Init(PORT_I2C, &GPIO_InitStruct);
+
+		for(int i=1;i<9;i++)
+		{
+			TWI_SCL_0();
+			
+			if(TWI_SDA_STATE())
+			{
+				GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+				GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+				GPIO_InitStruct.Pin = PIN_SDA;
+				HAL_GPIO_Init(PORT_I2C, &GPIO_InitStruct);
+
+				TWI_STOP();
+			}else
+			{
+				TWI_SCL_1();
+			}
+			TWI_NOP();
+		}
+		if(TWI_SDA_STATE())
+		{
+			TWI_STOP();
+		}else
+		{
+			
+		}
+	}
+	return 1;
+
+}

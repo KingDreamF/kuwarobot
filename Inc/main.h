@@ -46,6 +46,7 @@
 /* USER CODE BEGIN Includes */
 #include "stm32f0xx_hal.h"
 #include "stdint.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private define ------------------------------------------------------------*/
@@ -63,6 +64,8 @@
 	
 #define BUFFER_SIZE	1024
 
+void lowPowerMode();
+	
 extern uint8_t aRxBuffer[BUFFER_SIZE];
 extern uint32_t g_rx_len ;
 extern uint8_t  g_recv_end_flag ;

@@ -44,20 +44,36 @@
 #include "APDS9930.h"
 #include "bsp_key.h"
 #include "button.h"
+
+
+
+//#define __IWDG	//使能硬件看门狗
+//#define	__WWDG	//使能软件看门狗
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 DMA_HandleTypeDef hdma_i2c1_tx;
+DMA_HandleTypeDef hdma_usart1_tx;
 
 TIM_HandleTypeDef htim3;
-
+#ifdef __IWDG
+IWDG_HandleTypeDef hiwdg;
+#endif
+#ifdef __WWDG
+WWDG_HandleTypeDef hwwdg;
+#endif
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
+
+uint8_t aRxBuffer[BUFFER_SIZE] = {0};
+uint32_t g_rx_len =0;
+uint8_t  g_recv_end_flag =0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,6 +84,12 @@ void MX_I2C1_Init(void);
 void MX_USART1_UART_Init(void);
 void MX_TIM3_Init(void);
 
+#ifdef __IWDG
+static void MX_IWDG_Init(void);
+#endif
+#ifdef __WWDG
+static void MX_WWDG_Init(void);
+#endif
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 
@@ -75,11 +97,6 @@ void MX_TIM3_Init(void);
 
 /* USER CODE BEGIN 0 */
 
-
-Button button;
-uint8_t aRxBuffer[BUFFER_SIZE] = {0};
-uint32_t g_rx_len =0;
-uint8_t  g_recv_end_flag =0;
 /* USER CODE END 0 */
 
 /**
@@ -89,39 +106,39 @@ uint8_t  g_recv_end_flag =0;
   */
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
+	/* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration----------------------------------------------------------*/
+	/* MCU Configuration----------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+	/* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_I2C1_Init();
-  MX_USART1_UART_Init();
-  MX_TIM3_Init();
-  /* USER CODE BEGIN 2 */
-  APDS9930_init();
-  APDS9930_setMode(WAIT, 1); // enable wait. // 50 ms per circle
-  APDS9930_enableProximitySensor(false);
-  
-  bsp_InitKey();//初始化按键
-  
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_DMA_Init();
+	//MX_I2C1_Init();
+	MX_USART1_UART_Init();
+	MX_TIM3_Init();
+	
+
+	/* USER CODE BEGIN 2 */
+	if(__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) != RESET)
+	{
+		SysLog("Power reset system!\n");
+	}
 	if(__HAL_PWR_GET_FLAG(PWR_FLAG_SB) !=RESET)
 	{
 		SysLog("Standby reset system!\n");
@@ -129,33 +146,80 @@ int main(void)
 		__HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
 		HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN2);
 	}
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  
-  HAL_TIM_Base_Start_IT(&htim3);
-  
-  uint16_t proximity_data = 0;
-  uint8_t ucKeyCode;
-  while (1)
-  {
-	ucKeyCode = bsp_GetKey();
-	if (ucKeyCode != KEY_NONE)
+	if(__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST) != RESET)
 	{
+		SysLog("IWDG reset system!\n");
+		
+	}
+	if(__HAL_RCC_GET_FLAG(RCC_FLAG_WWDGRST) != RESET)
+	{
+		SysLog("WWDG reset system!\n");
+		//printf("%d\n",HAL_GetTick());
+	}
+	__HAL_RCC_CLEAR_RESET_FLAGS();
+	
+	I2CCheck();
+
+	APDS9930_init();
+	APDS9930_setMode(WAIT, 1); // enable wait. // 50 ms per circle
+	APDS9930_enableProximitySensor(false);
+
+	bsp_InitKey();//初始化按键
+
+	/* USER CODE END 2 */
+
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
+	
+	HAL_TIM_Base_Start_IT(&htim3);
+
+	uint16_t proximity_data = 0;
+	uint8_t ucKeyCode;
+	uint8_t is_long_key=0;
+	uint8_t proximity_flag=0;
+	
+	
+#ifdef __IWDG
+	MX_IWDG_Init();
+#endif
+#ifdef __WWDG
+	MX_WWDG_Init();
+
+#endif
+	while (1)
+	{
+
+#ifdef 	__IWDG
+		//喂狗
+		HAL_IWDG_Refresh(&hiwdg);
+#endif
+#ifdef __WWDG
+
+		HAL_WWDG_Refresh(&hwwdg);
+		
+#endif
+		ucKeyCode = bsp_GetKey();
+		if (ucKeyCode != KEY_NONE)
+		{
 		switch (ucKeyCode)
 		{
 			case KEY_DOWN_K1:			  /* K1键按下 打印任务执行情况 */
 				
 				SysLog("k1 down!\n");
-				
+
 				break;
 			case KEY_UP_K1:
 				SysLog("k1 up!\n");
-				
+				if(is_long_key == 0)
+				{
+					 SysLog("k1 short");
+				}
+				 
+				is_long_key =0;
 				break;
 			case KEY_LONG_K1:
 				SysLog("k1 long!\n");
+				is_long_key =1;
 				lowPowerMode();
 				break;
 		}
@@ -166,13 +230,15 @@ int main(void)
 	if(g_recv_end_flag == 1)   //接收完成标志
     {
         HAL_UART_Transmit(&huart1,aRxBuffer, g_rx_len,0xff);
+		//HAL_UART_Transmit_DMA(&huart1,aRxBuffer, g_rx_len);
         g_rx_len = 0;//清除计数
         g_recv_end_flag = 0;//清除接收结束标志位
         memset(aRxBuffer,0,sizeof(aRxBuffer));
     }    
     APDS9930_readProximity(&proximity_data);
-	printf("%d\n",proximity_data);
-	HAL_Delay(50);
+
+	//printf("%d\n",proximity_data);
+	//HAL_Delay(10);
   }
   /* USER CODE END 3 */
 
@@ -192,8 +258,10 @@ void SystemClock_Config(void)
     /**Initializes the CPU, AHB and APB busses clocks 
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSE;
+									
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = 16;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
@@ -237,6 +305,41 @@ void SystemClock_Config(void)
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 
+#ifdef __IWDG
+/* IWDG init function */
+static void MX_IWDG_Init(void)
+{
+
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_16;//Tout = (prescaler) / 40 * reload; //kb == ms
+  hiwdg.Init.Window = 4095;
+  hiwdg.Init.Reload =2500/2;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+#endif
+#ifdef __WWDG
+/* WWDG init function */
+static void MX_WWDG_Init(void)
+{
+	
+	
+	
+	hwwdg.Instance = WWDG;
+	hwwdg.Init.Prescaler = WWDG_PRESCALER_8;//Tout=((4*2^prer)*rlr)/40
+	hwwdg.Init.Window = 0x7f;//7位二进制数最大只可以设定为127(0x7F)，最小又必须大于下窗口的0x40，所以其取值范围为64~127（即：0x40~0x7F）;
+	hwwdg.Init.Counter = 0x7f;
+	hwwdg.Init.EWIMode = WWDG_EWI_ENABLE;
+	if (HAL_WWDG_Init(&hwwdg) != HAL_OK)
+	{
+	_Error_Handler(__FILE__, __LINE__);
+	}
+	
+}
+#endif
 /* I2C1 init function */
 void MX_I2C1_Init(void)
 {
@@ -281,7 +384,7 @@ void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 48000-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 10-1;
+  htim3.Init.Period = 10-1;							/*((1+TIM_Prescaler )/48M)*(1+TIM_Period )=((1+48000-1)/48M)*(1+9)=10毫秒*/
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -325,7 +428,8 @@ void MX_USART1_UART_Init(void)
   //添加使能idle中断和打开串口DMA接收语句
   __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);//使能idle中断
   HAL_UART_Receive_DMA(&huart1,aRxBuffer,BUFFER_SIZE);
-
+  HAL_UART_Transmit_DMA(&huart1,aRxBuffer, BUFFER_SIZE);
+  
 }
 
 /** 
@@ -338,7 +442,7 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel2_3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_3_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel2_3_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_3_IRQn);
 
 }
